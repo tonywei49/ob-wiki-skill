@@ -669,12 +669,20 @@ bash ${SKILL_DIR}/scripts/adapter-state.sh classify-run <source_id> <exit_code> 
 
    ```bash
    bash ${SKILL_DIR}/scripts/lint-runner.sh <wiki_root>
+   node ${SKILL_DIR}/scripts/obsidian-graph-check.js <wiki_root>
    ```
 
-   脚本负责三项**机械检查**（只需要精确匹配，不需要判断）：
+   `lint-runner.sh` 负责知识库主体的机械检查（只需要精确匹配，不需要判断）：
    - 孤立页面（`主题/、素材摘要/、对比分析/` 下没有被其他页面引用的素材）
    - 断链（`[[X]]` 链接指向的 `X.md` 不存在，支持 `[[X|别名]]` 语法）
    - index 一致性（索引.md 里有记录但文件缺失的条目）
+
+   `obsidian-graph-check.js` 负责 Obsidian 图谱口径检查：
+   - 扫描 wiki 根目录下所有 Markdown，而不只扫描 `知识库/`
+   - 排除 `assets/`、`.wiki-tmp/`、`.git/`、`node_modules/`
+   - 检查 Obsidian 图谱里会出现的孤立根文件、原始素材、schema、日志、研究方向
+   - 检查示例双链、原文里的 `[[wikilinks]]` 这类假链接是否造成断链
+   - 检查同名文件导致的双链歧义
 
    退出码：`0` = 运行完成，`1` = 脚本自身错误（路径不存在、索引.md 缺失）。
    如果 exit 1，向用户报告错误，不要继续。
@@ -697,6 +705,8 @@ bash ${SKILL_DIR}/scripts/adapter-state.sh classify-run <source_id> <exit_code> 
    **补充建议**：基于 Step 0 脚本的孤立页/断链输出，给出修复建议（脚本只列问题，不给方案）
    - 孤立页面 → 建议从哪些相关页面添加 `[[链接]]`
    - 断链 → 建议为哪些概念创建新页面，或改写引用为已有页面
+   - Obsidian 图谱孤点 → 优先让孤点所在页面单向链接到 `[[索引]]`、对应素材摘要或主题页；不要为了修 Obsidian 图谱，在 `知识库/` 页面里链接根目录文件或 `原始素材/` 文件，否则会破坏 llm-wiki lint
+   - 同名歧义 → 原始素材文件名追加 `-raw`，素材摘要保留原名
 
 4. **输出报告**（按 `WIKI_LANG` 切换语言，整合 Step 0 脚本输出 + Step 3 AI 判断结果）：
 
@@ -954,6 +964,18 @@ bash ${SKILL_DIR}/scripts/adapter-state.sh classify-run <source_id> <exit_code> 
 1. **扫描双向链接**：
    - 遍历 `知识库/` 下所有 `.md` 文件
    - 提取每个文件中的 `[[链接]]` 语法，建立关系列表：`页面A → 页面B`
+   - 额外运行 Obsidian 图谱口径检查，确认根目录文件、原始素材和 schema 不会在 Obsidian 图谱里变成孤点：
+
+     ```bash
+     node ${SKILL_DIR}/scripts/obsidian-graph-check.js "$WIKI_ROOT"
+     ```
+
+   - 如果发现 Obsidian 孤点，先按下面规则修复，再生成图谱：
+     - `研究方向.md`、`日志.md`、`.wiki-schema.md`：让这些根文件单向链接到 `[[索引]]` 或主主题页
+     - `原始素材/`：原始素材可以单向链接到对应素材摘要；素材摘要不要用 `[[...]]` 反向链接原始素材，只在 `source_path` 或普通文本里记录路径
+     - 同名文件：如果原始素材和素材摘要同名，把原始素材改名为 `*-raw.md`，并同步 `source_path`、`.wiki-cache.json`
+     - 示例双链：schema、模板说明、原文里的 `[[页面名]]`、`[[wikilinks]]` 等示例必须改成普通文本或代码说明，不要让 Obsidian 当成真实页面
+     - `知识库/` 页面只链接知识库主体页；根目录页和原始素材链接知识库主体页即可
 
 2. **生成 Mermaid 图表文件** `知识库/knowledge-graph.md`：
    ````markdown
@@ -1020,6 +1042,15 @@ bash ${SKILL_DIR}/scripts/adapter-state.sh classify-run <source_id> <exit_code> 
    内嵌进 `<script id="graph-data" type="application/json">`，离线双击即可打开。
    页面保持三栏国风布局：左侧文献索引，中间数字山水图谱，右侧常驻节点详情。
    包含搜索、社区筛选、节点视觉分层、首屏推荐预览、摘要、正文、相邻节点、洞察、小地图和关系置信度图例。
+
+   如果 `knowledge-graph.html` 或其 JS 依赖导致 `lint-runner.sh` 把代码里的 `[[...]]` 误判成断链，把交互式产物移动到 `assets/`，并在 `知识库/knowledge-graph.md` 里用普通路径记录：
+
+   ```text
+   assets/knowledge-graph.html
+   assets/graph-data.json
+   ```
+
+   移动后重新运行 `lint-runner.sh` 和 `obsidian-graph-check.js`。
 
 3. **读取 insights 并向用户展示结果**（按 `WIKI_LANG` 切换语言）：
 

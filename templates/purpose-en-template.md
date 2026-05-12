@@ -1,5 +1,7 @@
 # Research Purpose and Direction
 
+Related entry: [[索引]]
+
 ## Core Goal
 <!-- What problem should this wiki solve, and who does it help? -->
 [To fill]

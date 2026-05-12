@@ -49,3 +49,7 @@
 > Deep cross-source analysis
 
 (none yet)
+
+---
+
+Root files `研究方向.md`, `日志.md`, and `.wiki-schema.md` should link one-way to this index to avoid isolated nodes in Obsidian Graph. Do not link those root files from this index with wikilinks, otherwise llm-wiki lint may treat them as missing wiki pages.
