@@ -35,8 +35,8 @@ uv run scripts/get_transcript.py "VIDEO_URL_OR_ID" --timestamps
 
 ## Output
 
-- CRITICAL: YOU MUST NEVER MODIFY THE RETURNED TRANSCRIPT
-- If the transcript is without timestamps, you SHOULD clean it up so that it is arranged by complete paragraphs and the lines don't cut in the middle of sentences.
+- Keep the transcript's wording exactly as returned: don't correct, summarize, translate, or drop any of it.
+- If the transcript has no timestamps, rejoin its lines into complete paragraphs so no line breaks mid-sentence; this changes line breaks only, never words.
 - If you were asked to save the transcript to a specific file, save it to the requested file.
 - If no output file was specified, use the YouTube video ID with a `-transcript.txt` suffix.
 
